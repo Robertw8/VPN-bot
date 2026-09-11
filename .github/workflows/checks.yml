@@ -1,0 +1,28 @@
+name: checks
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: vpn
+          POSTGRES_PASSWORD: vpn
+          POSTGRES_DB: vpn_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U vpn -d vpn_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://vpn:vpn@localhost:5432/vpn_test
+      TEST_DATABASE_URL: postgresql+asyncpg://vpn:vpn@localhost:5432/vpn_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -r requirements-dev.lock && pip install --no-deps -e .
+      - run: make check
+      - run: alembic upgrade head && alembic check
+      - run: pytest -q
